@@ -23,7 +23,7 @@ const router = express.Router();
  */
 router.get("/", async (req, res) => {
   try {
-    const courses = await Course.findAll({ include: { model: User, as: "teacher" } });
+    const courses = await Course.findAll({ include: { model: User, as: "teacher",  attributes: { exclude: ["password"] } } });
     res.json(courses);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch courses" });
