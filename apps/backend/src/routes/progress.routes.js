@@ -168,5 +168,62 @@ router.get("/", authenticate, authorize(["student"]), async (req, res) => {
     }
   });
   
+/**
+ * @swagger
+ * /courses/{courseId}/progress:
+ *   get:
+ *     summary: Get user's course progress percentage
+ *     tags: [Progress]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: courseId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Returns progress details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 courseId:
+ *                   type: string
+ *                 userId:
+ *                   type: string
+ *                 completedLessons:
+ *                   type: integer
+ *                 totalLessons:
+ *                   type: integer
+ *                 progressPercentage:
+ *                   type: number
+ *                   format: float
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Error fetching progress
+ */
+router.get("/:courseId/progress", authenticate, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.id;
+
+    const totalLessons = await Lesson.count({ where: { courseId } });
+    const completedLessons = await Progress.count({
+      where: { userId, completedAt: { [Op.ne]: null } },
+      include: { model: Lesson, where: { courseId } }
+    });
+
+    const progressPercentage = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+
+    res.json({ courseId, userId, completedLessons, totalLessons, progressPercentage });
+  } catch (error) {
+    res.status(500).json({ error: "Error fetching progress" });
+  }
+});
+
   module.exports = router;
   

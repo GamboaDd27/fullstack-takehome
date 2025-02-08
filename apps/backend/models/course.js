@@ -1,13 +1,13 @@
 module.exports = (sequelize, DataTypes) => {
   const Course = sequelize.define("Course", {
-    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
     title: { type: DataTypes.STRING, allowNull: false },
-    description: { type: DataTypes.TEXT }
+    description: { type: DataTypes.TEXT, allowNull: false },
+    teacherId: { type: DataTypes.UUID, allowNull: false }, // FK to User
   });
 
   Course.associate = (models) => {
-    Course.belongsTo(models.User, { foreignKey: "teacherId", as: "teacher", onDelete: "CASCADE" });
-    Course.hasMany(models.Lesson, { foreignKey: "courseId", as: "lessons", onDelete: "CASCADE" });
+    Course.belongsTo(models.User, { foreignKey: "teacherId", as: "teacher" });
   };
 
   return Course;
