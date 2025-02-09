@@ -1,5 +1,5 @@
 const express = require("express");
-const {User, Course} = require("../../models");
+const {User, Course, Lesson} = require("../../models");
 const { authenticate, authorize } = require("../middleware/auth.middleware");
 
 const router = express.Router();
@@ -51,7 +51,7 @@ router.get("/", async (req, res) => {
  */
 router.get("/:id", async (req, res) => {
   try {
-    const course = await Course.findByPk(req.params.id, { include: { model: User, as: "teacher" } });
+    const course = await Course.findByPk(req.params.id, { include: { model: User, as: "teacher", attributes: { exclude: ["password"] } } });
     if (!course) return res.status(404).json({ error: "Course not found" });
     res.json(course);
   } catch (error) {
@@ -189,5 +189,82 @@ router.delete("/:id", authenticate, authorize(["teacher", "admin"]), async (req,
     res.status(500).json({ error: "Failed to delete course" });
   }
 });
+
+
+/**
+ * @swagger
+ * /api/courses/{courseId}/lessons:
+ *   get:
+ *     summary: Get all lessons for a specific course
+ *     description: Returns a list of lessons that belong to a given course. Requires authentication.
+ *     tags:
+ *       - Courses
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         description: The ID of the course to fetch lessons for.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A list of lessons for the course.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     example: "lesson123"
+ *                   title:
+ *                     type: string
+ *                     example: "Introduction to English"
+ *                   description:
+ *                     type: string
+ *                     example: "Learn the basics of English vocabulary."
+ *                   courseId:
+ *                     type: string
+ *                     example: "course456"
+ *                   createdAt:
+ *                     type: string
+ *                     format: date-time
+ *                     example: "2024-02-06T12:00:00.000Z"
+ *                   updatedAt:
+ *                     type: string
+ *                     format: date-time
+ *                     example: "2024-02-06T12:00:00.000Z"
+ *       401:
+ *         description: Unauthorized, token is missing or invalid.
+ *       404:
+ *         description: No lessons found for the course.
+ *       500:
+ *         description: Server error.
+ */
+router.get("/:courseId/lessons", authenticate, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    const lessons = await Lesson.findAll({
+      where: { courseId },
+      order: [["createdAt", "ASC"]],
+    });
+
+    if (!lessons || lessons.length === 0) {
+      return res.status(404).json({ error: "No lessons found for this course" });
+    }
+
+    res.json(lessons);
+  } catch (error) {
+    console.error("❌ Error fetching lessons:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 
 module.exports = router;

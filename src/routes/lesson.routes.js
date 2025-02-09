@@ -49,13 +49,23 @@ router.get("/", async (req, res) => {
    *       404:
    *         description: Lesson not found
    */
-  router.get("/:id", async (req, res) => {
+  router.get("/:courseId", authenticate, async (req, res) => {
     try {
-      const lesson = await db.Lesson.findByPk(req.params.id, { include: { model: db.Course } });
-      if (!lesson) return res.status(404).json({ error: "Lesson not found" });
-      res.json(lesson);
+      const { courseId } = req.params;
+  
+      const lessons = await Lesson.findAll({
+        where: { courseId },
+        order: [["createdAt", "ASC"]], // ✅ Fetch lessons in order
+      });
+  
+      if (!lessons || lessons.length === 0) {
+        return res.status(404).json({ error: "No lessons found for this course" });
+      }
+  
+      res.json(lessons);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch lesson" });
+      console.error("Error fetching lessons:", error);
+      res.status(500).json({ error: "Server error" });
     }
   });
   

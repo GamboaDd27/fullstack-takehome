@@ -1,5 +1,5 @@
 const express = require("express");
-const db = require("../../models");
+const {Progress} = require("../../models");
 const { authenticate, authorize } = require("../middleware/auth.middleware");
 
 const router = express.Router();
@@ -40,45 +40,68 @@ router.get("/", authenticate, authorize(["student"]), async (req, res) => {
   });
   
   /**
-   * @swagger
-   * /api/progress/{lessonId}:
-   *   get:
-   *     summary: Check if a lesson is completed
-   *     tags: [Progress]
-   *     security:
-   *       - BearerAuth: []
-   *     parameters:
-   *       - in: path
-   *         name: lessonId
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: The ID of the lesson
-   *     responses:
-   *       200:
-   *         description: Returns lesson completion status
-   *       401:
-   *         description: Unauthorized
-   */
-  router.get("/:lessonId", authenticate, authorize(["student"]), async (req, res) => {
-    try {
-      const { lessonId } = req.params;
-      const userId = req.user.id;
-  
-      const progress = await db.Progress.findOne({
-        where: { userId, lessonId, completed: true },
-        include: { model: db.Lesson, attributes: ["id", "title"] }
-      });
-  
-      if (!progress) {
-        return res.json({ completed: false, message: "Lesson not completed" });
-      }
-  
-      res.json({ completed: true, lesson: progress.Lesson });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to check progress" });
+ * @swagger
+ * /api/progress/{lessonId}:
+ *   get:
+ *     summary: Get progress for a specific lesson
+ *     description: Returns progress for the given lesson and user.
+ *     tags:
+ *       - Progress
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: lessonId
+ *         required: true
+ *         description: The ID of the lesson to fetch progress for.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Progress for the lesson.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 lessonId:
+ *                   type: string
+ *                   example: "lesson123"
+ *                 userId:
+ *                   type: string
+ *                   example: "user456"
+ *                 progressPercentage:
+ *                   type: number
+ *                   example: 75
+ *       401:
+ *         description: Unauthorized, token is missing or invalid.
+ *       404:
+ *         description: No progress found for the lesson.
+ *       500:
+ *         description: Server error.
+ */
+router.get("/:lessonId", authenticate, async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+    const userId = req.user.id; // Extract user ID from authenticated request
+
+    console.log(`🔍 Fetching progress for lesson: ${lessonId}, user: ${userId}`);
+
+    const progress = await Progress.findOne({
+      where: { lessonId, userId },
+    });
+
+    if (!progress) {
+      console.warn(`⚠️ No progress found for lesson ${lessonId} and user ${userId}`);
+      return res.status(404).json({ error: "No progress found for this lesson" });
     }
-  });
+
+    res.json(progress);
+  } catch (error) {
+    console.error("❌ Error fetching progress:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
   
   /**
    * @swagger
