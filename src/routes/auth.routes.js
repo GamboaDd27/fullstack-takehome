@@ -2,6 +2,8 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const {User} = require("../../models/index");
+const {authenticate} = require('../middleware/auth.middleware')
+
 require("dotenv").config();
 
 const router = express.Router();
@@ -93,6 +95,30 @@ router.post("/login", async (req, res) => {
     res.json({ token });
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+
+
+/**
+ * @route GET /api/auth/me
+ * @desc Get the current authenticated user's info
+ * @access Private (Requires token)
+ */
+router.get("/me", authenticate, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ["id", "name", "email", "role"], // ✅ Exclude password hash
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
