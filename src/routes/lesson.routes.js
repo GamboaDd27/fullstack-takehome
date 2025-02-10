@@ -49,13 +49,13 @@ router.get("/", async (req, res) => {
    *       404:
    *         description: Lesson not found
    */
-  router.get("/:courseId", authenticate, async (req, res) => {
+  router.get("/:id", authenticate, async (req, res) => {
     try {
-      const { courseId } = req.params;
+      const { id } = req.params;
   
       const lessons = await Lesson.findAll({
-        where: { courseId },
-        order: [["createdAt", "ASC"]], // ✅ Fetch lessons in order
+        where: { id },
+        order: [["createdAt", "ASC"]],
       });
   
       if (!lessons || lessons.length === 0) {
