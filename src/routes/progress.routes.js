@@ -1,6 +1,6 @@
 const express = require("express");
-const {Progress} = require("../../models");
-const { authenticate, authorize } = require("../middleware/auth.middleware");
+const {Progress, Lesson} = require("../../models");
+const { authenticate} = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
@@ -25,7 +25,7 @@ const router = express.Router();
  *       401:
  *         description: Unauthorized
  */
-router.get("/", authenticate, authorize(["student"]), async (req, res) => {
+router.get("/", authenticate, async (req, res) => {
     try {
       const userId = req.user.id;
       const progress = await db.Progress.findAll({
@@ -126,24 +126,28 @@ router.get("/:lessonId", authenticate, async (req, res) => {
    *       404:
    *         description: Lesson not found
    */
-  router.post("/:lessonId", authenticate, authorize(["student"]), async (req, res) => {
+  router.post("/:lessonId", authenticate, async (req, res) => {
     try {
       const { lessonId } = req.params;
       const userId = req.user.id;
-  
       // Check if lesson exists
-      const lesson = await db.Lesson.findByPk(lessonId);
-      if (!lesson) return res.status(404).json({ error: "Lesson not found" });
+     const lesson = await Lesson.findAll({
+             where: { id: lessonId },
+             order: [["createdAt", "ASC"]],
+           });
+
+      if (!lesson || lesson.length === 0) {
+             return res.status(404).json({ error: "No lessons found for this course" });
+         }
   
       // Check if progress already exists
-      let progress = await db.Progress.findOne({ where: { userId, lessonId } });
-  
+      let progress = await Progress.findOne({ where: { userId, lessonId } });
       if (progress) {
         return res.status(400).json({ error: "Lesson already completed" });
       }
   
       // Mark lesson as completed
-      progress = await db.Progress.create({ userId, lessonId, completed: true });
+      progress = await Progress.create({ userId, lessonId, completed: true });
       res.status(201).json(progress);
     } catch (error) {
       res.status(500).json({ error: "Failed to update progress" });
@@ -171,7 +175,7 @@ router.get("/:lessonId", authenticate, async (req, res) => {
    *       404:
    *         description: Lesson is not marked as completed
    */
-  router.delete("/:lessonId", authenticate, authorize(["student"]), async (req, res) => {
+  router.delete("/:lessonId", authenticate, async (req, res) => {
     try {
       const { lessonId } = req.params;
       const userId = req.user.id;
@@ -247,6 +251,71 @@ router.get("/:courseId/progress", authenticate, async (req, res) => {
     res.status(500).json({ error: "Error fetching progress" });
   }
 });
+
+/**
+ * @swagger
+ * /api/progress/{lessonId}:
+ *   put:
+ *     summary: Update lesson progress percentage
+ *     description: Allows a student to update their progress for a specific lesson.
+ *     tags:
+ *       - Progress
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: lessonId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the lesson
+ *       - in: body
+ *         name: progress
+ *         required: true
+ *         schema:
+ *           type: object
+ *           properties:
+ *             progressPercentage:
+ *               type: number
+ *               example: 50
+ *     responses:
+ *       200:
+ *         description: Progress updated successfully
+ *       400:
+ *         description: Invalid progress value
+ *       404:
+ *         description: Lesson progress not found
+ *       500:
+ *         description: Server error
+ */
+
+router.put("/:lessonId", authenticate, async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+    const { progressPercentage } = req.body;
+    const userId = req.user.id;
+
+    if (typeof progressPercentage !== "number" || progressPercentage < 0 || progressPercentage > 100) {
+      return res.status(400).json({ error: "Invalid progress value" });
+    }
+    console.log('looking')
+    let progress = await Progress.findOne({ where: { lessonId, userId } });
+    console.log(progress, 'loooo')
+    if (!progress) {
+      return res.status(404).json({ error: "Lesson progress not found" });
+    }
+
+    // Update progress
+    progress.progressPercentage = progressPercentage;
+    await progress.save();
+
+    res.json({ message: "Progress updated", progress });
+  } catch (error) {
+    console.error("❌ Error updating progress:", error);
+    res.status(500).json({ error: "Failed to update progress" });
+  }
+});
+
 
   module.exports = router;
   
