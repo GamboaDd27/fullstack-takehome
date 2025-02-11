@@ -265,6 +265,63 @@ router.delete("/:id", authenticate, authorize(["teacher", "admin"]), async (req,
 });
 
 
+/**
+ * @swagger
+ * /api/courses/{courseId}/lessons:
+ *   get:
+ *     summary: Get all lessons for a specific course
+ *     description: Returns a list of lessons associated with a given course.
+ *     tags: [Lessons]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The UUID of the course to fetch lessons for
+ *     responses:
+ *       200:
+ *         description: A list of lessons for the course
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Lesson'
+ *       404:
+ *         description: No lessons found for the course
+ *       500:
+ *         description: Server error
+ */
+router.get("/:courseId/lessons", authenticate, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    // Verify if the course exists
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Fetch lessons for the given course
+    const lessons = await Lesson.findAll({
+      where: { courseId },
+      order: [["createdAt", "ASC"]],
+    });
+
+    if (lessons.length === 0) {
+      return res.status(404).json({ error: "No lessons found for this course" });
+    }
+
+    res.json(lessons);
+  } catch (error) {
+    console.error("❌ Error fetching lessons:", error);
+    res.status(500).json({ error: "Failed to fetch lessons" });
+  }
+});
 
 
 module.exports = router;
