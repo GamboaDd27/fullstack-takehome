@@ -7,7 +7,6 @@ const authRoutes = require("./routes/auth.routes");
 const courseRoutes = require("./routes/course.routes");
 const lessonRoutes = require("./routes/lesson.routes");
 const progressRoutes = require("./routes/progress.routes");
-const generalRoutes = require("./routes/general.routes");
 
 const swaggerDocs = require("./swagger");
 const morgan = require('morgan')
@@ -23,7 +22,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/lessons", lessonRoutes);
 app.use("/api/progress", progressRoutes);
-app.use("/api/general", generalRoutes);
 
 swaggerDocs(app);
 

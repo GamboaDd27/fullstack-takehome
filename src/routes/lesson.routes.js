@@ -13,211 +13,214 @@ const router = express.Router();
 
 /**
  * @swagger
+ * components:
+ *   securitySchemes:
+ *     BearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *   schemas:
+ *     Lesson:
+ *       type: object
+ *       required:
+ *         - title
+ *         - content
+ *         - courseId
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           description: Auto-generated UUID of the lesson
+ *         title:
+ *           type: string
+ *           description: Title of the lesson
+ *         content:
+ *           type: string
+ *           description: Lesson content
+ *         courseId:
+ *           type: string
+ *           format: uuid
+ *           description: The UUID of the associated course
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *       example:
+ *         id: "550e8400-e29b-41d4-a716-446655440000"
+ *         title: "Introduction to JavaScript"
+ *         content: "This lesson covers JavaScript basics."
+ *         courseId: "d1a673a1-4b1f-4675-9b9a-9150cf3adf0d"
+ *         createdAt: "2025-02-10T12:00:00Z"
+ *         updatedAt: "2025-02-10T12:00:00Z"
+ */
+
+/**
+ * @swagger
  * /api/lessons:
  *   get:
- *     summary: Get all lessons
+ *     summary: Retrieve all lessons
+ *     description: Fetch a list of all available lessons, including their associated courses.
  *     tags: [Lessons]
  *     responses:
  *       200:
  *         description: A list of lessons
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Lesson'
+ *       500:
+ *         description: Server error
  */
 router.get("/", async (req, res) => {
-    try {
-      const lessons = await db.Lesson.findAll({ include: { model: db.Course } });
-      res.json(lessons);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch lessons" });
+  try {
+    const lessons = await Lesson.findAll({ include: { model: Course } });
+    res.json(lessons);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch lessons" });
+  }
+});
+
+/**
+ * @swagger
+ * /api/lessons/{id}:
+ *   get:
+ *     summary: Retrieve a specific lesson by UUID
+ *     description: Fetch a single lesson by its UUID, including the associated course.
+ *     tags: [Lessons]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The UUID of the lesson to retrieve
+ *     responses:
+ *       200:
+ *         description: The requested lesson object
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Lesson'
+ *       404:
+ *         description: Lesson not found
+ *       500:
+ *         description: Server error
+ */
+router.get("/:id", authenticate, async (req, res) => {
+  try {
+    const lesson = await Lesson.findByPk(req.params.id, { include: { model: Course } });
+    if (!lesson) {
+      return res.status(404).json({ error: "Lesson not found" });
     }
-  });
-  
-  /**
-   * @swagger
-   * /api/lessons/{id}:
-   *   get:
-   *     summary: Get a single lesson by ID
-   *     tags: [Lessons]
-   *     parameters:
-   *       - in: path
-   *         name: id
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: The ID of the lesson
-   *     responses:
-   *       200:
-   *         description: A lesson object
-   *       404:
-   *         description: Lesson not found
-   */
-  router.get("/:id", authenticate, async (req, res) => {
-    try {
-      const { id } = req.params;
-  
-      const lessons = await Lesson.findAll({
-        where: { id },
-        order: [["createdAt", "ASC"]],
-      });
-  
-      if (!lessons || lessons.length === 0) {
-        return res.status(404).json({ error: "No lessons found for this course" });
-      }
-  
-      res.json(lessons);
-    } catch (error) {
-      console.error("Error fetching lessons:", error);
-      res.status(500).json({ error: "Server error" });
-    }
-  });
-  
-  /**
-   * @swagger
-   * /api/courses/{courseId}/lessons:
-   *   post:
-   *     summary: Create a new lesson under a course
-   *     tags: [Lessons]
-   *     security:
-   *       - BearerAuth: []
-   *     parameters:
-   *       - in: path
-   *         name: courseId
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: The ID of the course
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             required:
-   *               - title
-   *               - content
-   *             properties:
-   *               title:
-   *                 type: string
-   *               content:
-   *                 type: string
-   *     responses:
-   *       201:
-   *         description: Lesson created successfully
-   *       403:
-   *         description: Unauthorized to create lesson
-   *       404:
-   *         description: Course not found
-   */
-  router.post("/:courseId", authenticate, authorize(["teacher", "admin"]), async (req, res) => {
-    try {
-      const { title, content } = req.body;
-      const course = await db.Course.findByPk(req.params.courseId);
-  
-      if (!course) return res.status(404).json({ error: "Course not found" });
-  
-      if (req.user.role !== "admin" && course.teacherId !== req.user.id) {
-        return res.status(403).json({ error: "Unauthorized to add lessons" });
-      }
-  
-      const newLesson = await db.Lesson.create({ title, content, courseId: req.params.courseId });
-      res.status(201).json(newLesson);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to create lesson" });
-    }
-  });
-  
-  /**
-   * @swagger
-   * /api/lessons/{id}:
-   *   put:
-   *     summary: Update a lesson
-   *     tags: [Lessons]
-   *     security:
-   *       - BearerAuth: []
-   *     parameters:
-   *       - in: path
-   *         name: id
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: The ID of the lesson
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             properties:
-   *               title:
-   *                 type: string
-   *               content:
-   *                 type: string
-   *     responses:
-   *       200:
-   *         description: Lesson updated successfully
-   *       403:
-   *         description: Unauthorized to update lesson
-   *       404:
-   *         description: Lesson not found
-   */
-  router.put("/:id", authenticate, authorize(["teacher", "admin"]), async (req, res) => {
-    try {
-      const { title, content } = req.body;
-      const lesson = await db.Lesson.findByPk(req.params.id, { include: { model: db.Course } });
-  
-      if (!lesson) return res.status(404).json({ error: "Lesson not found" });
-  
-      if (req.user.role !== "admin" && lesson.Course.teacherId !== req.user.id) {
-        return res.status(403).json({ error: "Unauthorized to edit this lesson" });
-      }
-  
-      lesson.title = title || lesson.title;
-      lesson.content = content || lesson.content;
-      await lesson.save();
-  
-      res.json(lesson);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to update lesson" });
-    }
-  });
-  
-  /**
-   * @swagger
-   * /api/lessons/{id}:
-   *   delete:
-   *     summary: Delete a lesson
-   *     tags: [Lessons]
-   *     security:
-   *       - BearerAuth: []
-   *     parameters:
-   *       - in: path
-   *         name: id
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: The ID of the lesson
-   *     responses:
-   *       200:
-   *         description: Lesson deleted successfully
-   *       403:
-   *         description: Unauthorized to delete lesson
-   *       404:
-   *         description: Lesson not found
-   */
-  router.delete("/:id", authenticate, authorize(["teacher", "admin"]), async (req, res) => {
-    try {
-      const lesson = await db.Lesson.findByPk(req.params.id, { include: { model: db.Course } });
-  
-      if (!lesson) return res.status(404).json({ error: "Lesson not found" });
-  
-      if (req.user.role !== "admin" && lesson.Course.teacherId !== req.user.id) {
-        return res.status(403).json({ error: "Unauthorized to delete this lesson" });
-      }
-  
-      await lesson.destroy();
-      res.json({ message: "Lesson deleted successfully" });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete lesson" });
-    }
-  });
-  
-  module.exports = router;
-  
+    res.json(lesson);
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * @swagger
+ * /api/lessons/{courseId}:
+ *   post:
+ *     summary: Create a new lesson for a specific course
+ *     description: Teachers and admins can create a new lesson under a specific course.
+ *     tags: [Lessons]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The UUID of the course to add the lesson to
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Lesson'
+ *     responses:
+ *       201:
+ *         description: Lesson successfully created
+ *       403:
+ *         description: Unauthorized action
+ *       404:
+ *         description: Course not found
+ *       500:
+ *         description: Server error
+ */
+router.post("/:courseId", authenticate, authorize(["teacher", "admin"]), async (req, res) => {
+  try {
+    const { title, content } = req.body;
+    const course = await Course.findByPk(req.params.courseId);
+
+    if (!course) return res.status(404).json({ error: "Course not found" });
+
+    const newLesson = await Lesson.create({ title, content, courseId: req.params.courseId });
+    res.status(201).json(newLesson);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create lesson" });
+  }
+});
+
+/**
+ * @swagger
+ * /api/lessons/{id}:
+ *   put:
+ *     summary: Update an existing lesson
+ *     description: Allows teachers and admins to update a lesson.
+ *     tags: [Lessons]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The UUID of the lesson to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Lesson updated successfully
+ *       403:
+ *         description: Unauthorized action
+ *       404:
+ *         description: Lesson not found
+ *       500:
+ *         description: Server error
+ */
+router.put("/:id", authenticate, authorize(["teacher", "admin"]), async (req, res) => {
+  try {
+    const { title, content } = req.body;
+    const lesson = await Lesson.findByPk(req.params.id);
+
+    if (!lesson) return res.status(404).json({ error: "Lesson not found" });
+
+    await lesson.update({ title, content });
+    res.json(lesson);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update lesson" });
+  }
+});
+
+
+module.exports = router;

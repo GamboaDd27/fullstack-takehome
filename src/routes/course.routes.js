@@ -190,7 +190,6 @@ router.delete("/:id", authenticate, authorize(["teacher", "admin"]), async (req,
   }
 });
 
-
 /**
  * @swagger
  * /api/courses/{courseId}/lessons:
@@ -198,16 +197,17 @@ router.delete("/:id", authenticate, authorize(["teacher", "admin"]), async (req,
  *     summary: Get all lessons for a specific course
  *     description: Returns a list of lessons that belong to a given course. Requires authentication.
  *     tags:
- *       - Courses
+ *       - Lessons
  *     security:
  *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: courseId
  *         required: true
- *         description: The ID of the course to fetch lessons for.
+ *         description: The UUID of the course to fetch lessons for.
  *         schema:
  *           type: string
+ *           format: uuid
  *     responses:
  *       200:
  *         description: A list of lessons for the course.
@@ -216,28 +216,7 @@ router.delete("/:id", authenticate, authorize(["teacher", "admin"]), async (req,
  *             schema:
  *               type: array
  *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                     example: "lesson123"
- *                   title:
- *                     type: string
- *                     example: "Introduction to English"
- *                   description:
- *                     type: string
- *                     example: "Learn the basics of English vocabulary."
- *                   courseId:
- *                     type: string
- *                     example: "course456"
- *                   createdAt:
- *                     type: string
- *                     format: date-time
- *                     example: "2024-02-06T12:00:00.000Z"
- *                   updatedAt:
- *                     type: string
- *                     format: date-time
- *                     example: "2024-02-06T12:00:00.000Z"
+ *                 $ref: '#/components/schemas/Lesson'
  *       401:
  *         description: Unauthorized, token is missing or invalid.
  *       404:
@@ -248,13 +227,15 @@ router.delete("/:id", authenticate, authorize(["teacher", "admin"]), async (req,
 router.get("/:courseId/lessons", authenticate, async (req, res) => {
   try {
     const { courseId } = req.params;
+    console.log("Fetching lessons for courseId:", courseId);
 
     const lessons = await Lesson.findAll({
       where: { courseId },
+      include: { model: Course },
       order: [["createdAt", "ASC"]],
     });
 
-    if (!lessons || lessons.length === 0) {
+    if (lessons.length === 0) {
       return res.status(404).json({ error: "No lessons found for this course" });
     }
 
@@ -264,7 +245,6 @@ router.get("/:courseId/lessons", authenticate, async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
-
 
 
 module.exports = router;
